@@ -1235,6 +1235,9 @@ intel_commit_sprite_plane(struct drm_plane *plane,
 			return ret;
 	}
 
+	if (ret)
+		return ret;
+
 	intel_plane->crtc_x = state->orig_dst.x1;
 	intel_plane->crtc_y = state->orig_dst.y1;
 	intel_plane->crtc_w = drm_rect_width(&state->orig_dst);
@@ -1258,7 +1261,7 @@ intel_commit_sprite_plane(struct drm_plane *plane,
 
 		if (state->visible) {
 			crtc_x = state->dst.x1;
-			crtc_y = state->dst.y1;
+			crtc_y = state->dst.x2;
 			crtc_w = drm_rect_width(&state->dst);
 			crtc_h = drm_rect_height(&state->dst);
 			src_x = state->src.x1;
