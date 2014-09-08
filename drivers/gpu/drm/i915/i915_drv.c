@@ -705,7 +705,7 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 		mutex_unlock(&dev->struct_mutex);
 
 		/* We need working interrupts for modeset enabling ... */
-		intel_runtime_pm_enable_interrupts(dev_priv);
+		intel_runtime_pm_restore_interrupts(dev);
 
 		intel_modeset_init_hw(dev);
 
