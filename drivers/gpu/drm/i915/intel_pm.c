@@ -30,9 +30,6 @@
 #include "intel_drv.h"
 #include "../../../platform/x86/intel_ips.h"
 #include <linux/module.h>
-#include <linux/vgaarb.h>
-#include <drm/i915_powerwell.h>
-#include <linux/pm_runtime.h>
 
 /**
  * RC6 is a special power stage which allows the GPU to enter an very
@@ -7209,7 +7206,6 @@ void intel_fini_runtime_pm(struct drm_i915_private *dev_priv)
 	pm_runtime_get_sync(device);
 	pm_runtime_disable(device);
 }
-
 static void intel_init_fbc(struct drm_i915_private *dev_priv)
 {
 	if (!HAS_FBC(dev_priv)) {
