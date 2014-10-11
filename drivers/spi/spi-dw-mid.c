@@ -155,7 +155,11 @@ static struct dma_async_tx_descriptor *dw_spi_dma_prepare_rx(struct dw_spi *dws)
 	rxconf.src_addr_width = dws->dma_width;
 	rxconf.device_fc = false;
 
+<<<<<<< HEAD
 	dmaengine_slave_config(dws->rxchan, &rxconf);
+=======
+	dmaengine_slave_config(txchan, &rxconf);
+>>>>>>> d26833bfce5e (spi/dw: use dmaengine_slave_config() API)
 
 	memset(&dws->rx_sgl, 0, sizeof(dws->rx_sgl));
 	dws->rx_sgl.dma_address = dws->rx_dma;
