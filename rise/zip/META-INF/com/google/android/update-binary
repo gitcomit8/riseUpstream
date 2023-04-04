@@ -1,0 +1,225 @@
+#!/sbin/sh
+# Shell Script EDIFY Replacement: Recovery Flashable Zip
+# Methods created by osm0sis @ xda-developers
+# Script created by Simon1511@XDA
+
+OUTFD=/proc/self/fd/$2;
+ZIPFILE="$3";
+DIR=$(dirname "$ZIPFILE");
+bootloader=$(getprop ro.boot.bootloader)
+supported="13"
+
+if [ -z "`getprop ro.boot.bootloader | grep -E "A520|A720"`" ]; then
+    ui_print "This device is not supported"
+    ui_print "Aborting..."
+    exit
+fi
+
+# ui_print "<string>"
+ui_print() {
+  while [ "$1" ]; do
+    echo -e "ui_print $1
+      ui_print" >> $OUTFD;
+    shift;
+  done;
+}
+
+set_progress() {
+  echo "set_progress $1" >> $OUTFD;
+}
+
+# contains <string> <substring>
+contains() {
+  test "${1#*$2}" != "$1";
+}
+
+# unzip
+cd /tmp
+unzip -o "$ZIPFILE"
+
+ui_print " "
+ui_print "#############################"
+ui_print "  riseKernel for A5/A7 2017"
+ui_print " "
+#PLACEHOLDER
+ui_print " "
+ui_print "      by Simon1511@XDA     "
+ui_print "#############################"
+ui_print " "
+
+set_progress "0.25"
+
+ui_print "- Mounting partitions"
+
+# Unmount partitions
+umount /system
+umount /system_root
+umount /data
+umount /efs
+
+# Mount System and vendor if existent
+mount /dev/block/platform/13540000.dwmmc0/by-name/SYSTEM /system
+
+if ls /dev/block/platform/13540000.dwmmc0/by-name/VENDOR; then
+    if [ ! -d /vendor ]; then
+        mkdir /vendor
+    fi
+
+    mount /dev/block/platform/13540000.dwmmc0/by-name/VENDOR /vendor
+fi
+
+# Check if the user runs AOSP
+# "ro.treble.enabled=false" excludes both Rise-Q and any GSI since both have this prop set to "true"
+if contains "`cat /system/system/build.prop`" "ro.treble.enabled=false"; then
+    if [ "`grep "ro.system.build.date.utc" /system/system/build.prop | sed 's/ro.system.build.date.utc=//g'`" -lt "1617062400" ]; then
+        ui_print " "
+        ui_print "You are running a ROM that is too old. Consider updating to a more recent one."
+        ui_print "Aborting..."
+        ui_print " "
+        exit
+    fi
+fi
+
+set_progress "0.50"
+
+# Actual ROM detection
+if ls /system/system/build.prop; then
+
+    if [ "`grep "ro.system.build.version.release=" /system/system/build.prop | sed 's/ro.system.build.version.release=//g'`" -gt "$supported" ]; then
+        ui_print " "
+        ui_print "Unsupported ROM detected!"
+        ui_print "Supported: Android $supported, but Android $(grep "ro.system.build.version.release=" /system/system/build.prop | sed 's/ro.system.build.version.release=//g') is installed"
+        ui_print "Aborting..."
+        ui_print " "
+        exit
+    fi
+
+    # OneUI 2 / Rise-Q
+    if contains "`cat /system/system/build.prop`" "Rise-Q"; then
+        cd /tmp
+        
+        ui_print "- Rise-Q detected"
+        
+        set_progress "0.75"
+        
+        ui_print "- Installing kernel..."
+        
+        sleep 3
+        
+        if contains "$bootloader" "A520"; then
+            dd if=rise/a5/rise-q.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        elif contains "$bootloader" "A720"; then
+            dd if=rise/a7/rise-q.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        fi
+
+    # Treble Q and R
+    elif ls /vendor/build.prop; then
+        if ! contains "`cat /system/system/build.prop`" "ro.treble.enabled=true"; then
+            ui_print " "
+            ui_print "It looks like you are running a non-treble ROM but there are files in your /vendor partition. Consider wiping /vendor and trying again."
+            exit
+        fi
+
+        ui_print "- Treble support has been removed from this kernel. Please use version 1.10 if you need the Treble version of this kernel."
+
+        exit
+
+    # AOSP Q
+    elif contains "`cat /system/system/build.prop`" "ro.system.build.version.release=10"; then
+        cd /tmp
+        
+        ui_print "- AOSP 10.0 ROM detected"
+        
+        set_progress "0.75"
+        
+        ui_print "- Installing kernel..."
+        
+        sleep 3
+        
+        if contains "$bootloader" "A520"; then
+            dd if=rise/a5/aosp-q.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        elif contains "$bootloader" "A720"; then
+            dd if=rise/a7/aosp-q.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        fi
+
+    # AOSP R
+    elif contains "`cat /system/system/build.prop`" "ro.system.build.version.release=11"; then
+        cd /tmp
+        
+        ui_print "- AOSP 11.0 ROM detected"
+        
+        set_progress "0.75"
+        
+        ui_print "- Installing kernel..."
+        
+        sleep 3
+        
+        if contains "$bootloader" "A520"; then
+            dd if=rise/a5/aosp-r.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        elif contains "$bootloader" "A720"; then
+            dd if=rise/a7/aosp-r.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        fi
+
+    # AOSP S
+    elif contains "`cat /system/system/build.prop`" "ro.system.build.version.release=12"; then
+        cd /tmp
+        
+        ui_print "- AOSP 12.0/12.1 ROM detected"
+        
+        set_progress "0.75"
+        
+        ui_print "- Installing kernel..."
+        
+        sleep 3
+        
+        if contains "$bootloader" "A520"; then
+            dd if=rise/a5/aosp-s.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        elif contains "$bootloader" "A720"; then
+            dd if=rise/a7/aosp-s.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        fi
+
+    # AOSP T
+    elif contains "`cat /system/system/build.prop`" "ro.system.build.version.release=13"; then
+        cd /tmp
+        
+        ui_print "- AOSP 13.0 ROM detected"
+        
+        set_progress "0.75"
+        
+        ui_print "- Installing kernel..."
+        
+        sleep 3
+        
+        if contains "$bootloader" "A520"; then
+            dd if=rise/a5/aosp-t.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        elif contains "$bootloader" "A720"; then
+            dd if=rise/a7/aosp-t.img of=/dev/block/platform/13540000.dwmmc0/by-name/BOOT bs=4096
+        fi
+    fi
+elif ls /system/build.prop; then
+    ui_print "You are running a ROM with an android version older than 10.0"
+    ui_print "Aborting..."
+    exit
+else
+    ui_print "Error detecting android version"
+    ui_print "Aborting..."
+    exit
+fi
+
+if [ -d /system/system/addon.d/ ]; then
+    ui_print "- Adding survival script for OTA's..."
+    cp rise/addon.d/98-risekernel.sh  /system/system/addon.d/
+    chmod +x /system/system/addon.d/98-risekernel.sh
+fi
+
+ui_print "- Unmounting partitions"
+umount /system
+umount /system_root
+
+# Cleanup
+rm -rf /tmp/META-INF
+rm -rf /tmp/rise
+
+ui_print "- Kernel has been successfully installed"
+set_progress "1.00"
+ui_print " "
