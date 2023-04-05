@@ -24,7 +24,6 @@
 #include <linux/log2.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/amd-iommu.h>
 #include <linux/notifier.h>
 struct mm_struct;
 
@@ -164,7 +163,6 @@ static void kfd_process_wq_release(struct work_struct *work)
 
 	list_for_each_entry_safe(pdd, temp, &p->per_device_data,
 							per_device_list) {
-		amd_iommu_unbind_pasid(pdd->dev->pdev, p->pasid);
 		list_del(&pdd->per_device_list);
 
 		kfree(pdd);
@@ -222,13 +220,6 @@ static void kfd_process_notifier_release(struct mmu_notifier *mn,
 	mutex_unlock(&kfd_processes_mutex);
 	synchronize_srcu(&kfd_processes_srcu);
 
-	mutex_lock(&p->mutex);
-
-	/* In case our notifier is called before IOMMU notifier */
-	pqm_uninit(&p->pqm);
-
-	mutex_unlock(&p->mutex);
-
 	/*
 	 * Because we drop mm_count inside kfd_process_destroy_delayed
 	 * and because the mmu_notifier_unregister function also drop
@@ -281,16 +272,8 @@ static struct kfd_process *create_process(const struct task_struct *thread)
 
 	INIT_LIST_HEAD(&process->per_device_data);
 
-	err = pqm_init(&process->pqm, process);
-	if (err != 0)
-		goto err_process_pqm_init;
-
 	return process;
 
-err_process_pqm_init:
-	hash_del_rcu(&process->kfd_processes);
-	synchronize_rcu();
-	mmu_notifier_unregister_no_release(&process->mmu_notifier, process->mm);
 err_mmu_notifier:
 	kfd_pasid_free(process->pasid);
 err_alloc_pasid:
@@ -315,9 +298,6 @@ struct kfd_process_device *kfd_get_process_device_data(struct kfd_dev *dev,
 		pdd = kzalloc(sizeof(*pdd), GFP_KERNEL);
 		if (pdd != NULL) {
 			pdd->dev = dev;
-			INIT_LIST_HEAD(&pdd->qpd.queues_list);
-			INIT_LIST_HEAD(&pdd->qpd.priv_queue_list);
-			pdd->qpd.dqm = dev->dqm;
 			list_add(&pdd->per_device_list, &p->per_device_data);
 		}
 	}
@@ -336,22 +316,12 @@ struct kfd_process_device *kfd_bind_process_to_device(struct kfd_dev *dev,
 							struct kfd_process *p)
 {
 	struct kfd_process_device *pdd = kfd_get_process_device_data(dev, p, 1);
-	int err;
 
 	if (pdd == NULL)
 		return ERR_PTR(-ENOMEM);
 
 	if (pdd->bound)
 		return pdd;
-
-	err = amd_iommu_bind_pasid(dev->pdev, p->pasid, p->lead_thread);
-	if (err < 0)
-		return ERR_PTR(err);
-
-	if (err < 0) {
-		amd_iommu_unbind_pasid(dev->pdev, p->pasid);
-		return ERR_PTR(err);
-	}
 
 	pdd->bound = true;
 
@@ -377,8 +347,6 @@ void kfd_unbind_process_from_device(struct kfd_dev *dev, unsigned int pasid)
 	BUG_ON(p->pasid != pasid);
 
 	mutex_lock(&p->mutex);
-
-	pqm_uninit(&p->pqm);
 
 	pdd = kfd_get_process_device_data(dev, p, 0);
 
